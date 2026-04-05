@@ -6,6 +6,10 @@ Navigate a randomly generated labyrinth, avoid the enemy, and find the exit befo
 
 ![Maze Escape](https://img.shields.io/badge/game-browser-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 👾 Play Here
+
+[**Play Maze Escape**](https://petrzmax.github.io/maze-escape/)
+
 ## Features
 
 - **Raycasting renderer** — textured walls, floors, and ceilings using Lodev DDA algorithm
