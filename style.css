@@ -1,0 +1,118 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Courier New', monospace;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    image-rendering: pixelated;
+}
+
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#timer {
+    font-size: 28px;
+    color: #fff;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    font-weight: bold;
+}
+
+#message {
+    font-size: 20px;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    font-weight: bold;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+#overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+#overlayTitle {
+    font-size: 64px;
+    color: #ff4444;
+    font-weight: bold;
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+    margin-bottom: 20px;
+    letter-spacing: 8px;
+}
+
+#overlaySubtitle {
+    font-size: 20px;
+    color: #ccc;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+#overlayControls {
+    font-size: 16px;
+    color: #888;
+    text-align: center;
+    line-height: 1.8;
+    margin-bottom: 40px;
+    border: 1px solid #444;
+    padding: 16px 32px;
+    border-radius: 4px;
+}
+
+#overlayPrompt {
+    font-size: 24px;
+    color: #ffd700;
+    animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+
+#hud.hidden, #overlay:not(.visible) {
+    pointer-events: none;
+}
