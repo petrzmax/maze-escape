@@ -97,6 +97,13 @@ class Player {
         }
     }
 
+    /** Returns true when the player is pressing a translation key (WASD / ↑↓). */
+    isMoving() {
+        return !!(this.keys['KeyW'] || this.keys['ArrowUp'] ||
+                  this.keys['KeyS'] || this.keys['ArrowDown'] ||
+                  this.keys['KeyA'] || this.keys['KeyD']);
+    }
+
     _collidesAt(px, py, r, map, mapW, mapH) {
         // Check all grid cells the player's bounding box touches
         const minX = Math.floor(px - r);
