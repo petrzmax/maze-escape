@@ -113,6 +113,19 @@ html, body {
     50% { opacity: 0.2; }
 }
 
+#muteIndicator {
+    font-size: 24px;
+    cursor: pointer;
+    pointer-events: all;
+    user-select: none;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+#muteIndicator:hover {
+    opacity: 1;
+}
+
 #hud.hidden, #overlay:not(.visible) {
     pointer-events: none;
 }

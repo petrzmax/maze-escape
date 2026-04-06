@@ -13,6 +13,7 @@
     <div id="hud">
         <div id="timer">00:00</div>
         <div id="message">Find the exit!</div>
+        <div id="muteIndicator" title="Press M to toggle sound">🔊</div>
     </div>
 
     <div id="overlay" class="visible">
@@ -21,7 +22,7 @@
         <div id="overlayControls">
             WASD / Arrows — Move &amp; Look<br>
             W/↑ Forward · S/↓ Back · A/D Strafe · ←/→ Turn<br>
-            ESC — Pause
+            ESC — Pause · M — Mute/Unmute
         </div>
         <div id="overlayPrompt">Press any key to start</div>
     </div>
@@ -30,6 +31,7 @@
     <script src="raycaster.js"></script>
     <script src="player.js"></script>
     <script src="enemy.js"></script>
+    <script src="audio.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

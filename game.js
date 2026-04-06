@@ -25,6 +25,10 @@
     const overlayPrompt = document.getElementById('overlayPrompt');
     const timerEl = document.getElementById('timer');
     const messageEl = document.getElementById('message');
+    const muteIndicatorEl = document.getElementById('muteIndicator');
+
+    // Audio
+    const soundManager = new SoundManager();
 
     let state = STATE_TITLE;
     let raycaster = null;
@@ -36,6 +40,10 @@
     let enemyActive = false;
     let lastTime = 0;
     let animFrameId = null;
+
+    // Footstep cadence timer
+    let footstepTimer = 0;
+    const FOOTSTEP_INTERVAL = 0.35; // seconds between footsteps
 
     // Fog-of-war: set of revealed cell keys (gy * mapW + gx)
     let revealed = new Set();
@@ -63,6 +71,16 @@
     }
 
     function handleGlobalKey(e) {
+        // Resume audio context on any user gesture (browser policy)
+        soundManager.resume();
+
+        // M — toggle mute
+        if (e.code === 'KeyM') {
+            const muted = soundManager.setMuted(!soundManager.muted);
+            muteIndicatorEl.textContent = muted ? '🔇' : '🔊';
+            return;
+        }
+
         // ESC — pause / unpause
         if (e.code === 'Escape') {
             if (state === STATE_PLAYING) {
@@ -88,6 +106,9 @@
 
     function pauseGame() {
         state = STATE_PAUSED;
+        soundManager.playMenuClick();
+        soundManager.stopAmbient();
+        soundManager.stopHeartbeat();
         showOverlay('PAUSED',
             'Game is paused.',
             false,
@@ -96,11 +117,16 @@
 
     function resumeGame() {
         state = STATE_PLAYING;
+        soundManager.playMenuClick();
+        soundManager.startAmbient();
         hideOverlay();
         lastTime = performance.now(); // reset dt so no jump
     }
 
     function startGame() {
+        // Stop any lingering sounds from previous round
+        soundManager.cleanup();
+
         // Generate a new maze
         mazeData = generateMaze(MAZE_CELLS_W, MAZE_CELLS_H);
 
@@ -117,6 +143,7 @@
         gameTime = 0;
         enemySpawnTimer = 0;
         enemyActive = false;
+        footstepTimer = 0;
 
         // Reset fog-of-war
         revealed = new Set();
@@ -128,6 +155,10 @@
 
         state = STATE_PLAYING;
         lastTime = performance.now();
+
+        // Start audio
+        soundManager.playMenuClick();
+        soundManager.startAmbient();
     }
 
     function revealAround(px, py) {
@@ -180,6 +211,17 @@
             // Update player
             player.update(dt, mazeData.map, mazeData.mapW, mazeData.mapH);
 
+            // Footstep sounds
+            if (player.isMoving()) {
+                footstepTimer -= dt;
+                if (footstepTimer <= 0) {
+                    soundManager.playFootstep();
+                    footstepTimer = FOOTSTEP_INTERVAL;
+                }
+            } else {
+                footstepTimer = 0; // reset so first step is immediate
+            }
+
             // Reveal cells around player
             revealAround(player.x, player.y);
 
@@ -201,7 +243,12 @@
             if (enemyActive) {
                 enemy.update(dt, mazeData.map, mazeData.mapW, mazeData.mapH, player.x, player.y);
 
-                if (enemy.distToPlayer(player.x, player.y) < ENEMY_CATCH_DIST) {
+                const distToEnemy = enemy.distToPlayer(player.x, player.y);
+
+                // Heartbeat proximity sound
+                soundManager.updateEnemyProximity(distToEnemy);
+
+                if (distToEnemy < ENEMY_CATCH_DIST) {
                     onGameOver();
                 }
             }
@@ -252,6 +299,9 @@
     function onWin() {
         state = STATE_WIN;
         player.removeInput();
+        soundManager.stopAmbient();
+        soundManager.stopHeartbeat();
+        soundManager.playWinSound();
         showOverlay('YOU ESCAPED!',
             `Time: ${formatTime(gameTime)}<br>Congratulations!`,
             false,
@@ -262,6 +312,9 @@
     function onGameOver() {
         state = STATE_GAMEOVER;
         player.removeInput();
+        soundManager.stopAmbient();
+        soundManager.stopHeartbeat();
+        soundManager.playCaughtSting();
         showOverlay('CAUGHT!',
             `The enemy got you after ${formatTime(gameTime)}.<br>Better luck next time!`,
             false,
