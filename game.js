@@ -24,7 +24,6 @@
     const overlayControls = document.getElementById('overlayControls');
     const overlayPrompt = document.getElementById('overlayPrompt');
     const timerEl = document.getElementById('timer');
-    const messageEl = document.getElementById('message');
 
 
     // Audio
@@ -41,6 +40,7 @@
     let lastTime = 0;
     let animFrameId = null;
     let showMinimap = false;
+    let restartLocked = false;
 
     // Footstep cadence timer
     let footstepTimer = 0;
@@ -96,6 +96,7 @@
 
         // Any other key on overlay screens
         if (state === STATE_TITLE || state === STATE_WIN || state === STATE_GAMEOVER) {
+            if (restartLocked) return;
             startGame();
         }
         if (state === STATE_PAUSED) {
@@ -150,8 +151,6 @@
         revealAround(player.x, player.y);
 
         hideOverlay();
-        messageEl.textContent = 'Find the exit!';
-        messageEl.style.color = '#ffd700';
 
         state = STATE_PLAYING;
         lastTime = performance.now();
@@ -206,7 +205,6 @@
 
         if (state === STATE_PLAYING) {
             gameTime += dt;
-            timerEl.textContent = formatTime(gameTime);
 
             // Update player
             player.update(dt, mazeData.map, mazeData.mapW, mazeData.mapH);
@@ -229,14 +227,6 @@
             enemySpawnTimer += dt;
             if (!enemyActive && enemySpawnTimer >= ENEMY_SPAWN_DELAY) {
                 enemyActive = true;
-                messageEl.textContent = 'The enemy is coming!';
-                messageEl.style.color = '#ff4444';
-                setTimeout(() => {
-                    if (state === STATE_PLAYING) {
-                        messageEl.textContent = 'Find the exit!';
-                        messageEl.style.color = '#ffd700';
-                    }
-                }, 2000);
             }
 
             // Update enemy
@@ -316,10 +306,18 @@
         soundManager.stopAmbient();
         soundManager.stopHeartbeat();
         soundManager.playCaughtSting();
+
+        // Lock input briefly to prevent accidental restart
+        restartLocked = true;
         showOverlay('CAUGHT!',
             `The enemy got you after ${formatTime(gameTime)}.<br>Better luck next time!`,
             false,
-            'Press any key to try again');
+            '');
+
+        setTimeout(() => {
+            restartLocked = false;
+            overlayPrompt.textContent = 'Press any key to try again';
+        }, 1000);
     }
 
     if (document.readyState === 'loading') {

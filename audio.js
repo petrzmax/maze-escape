@@ -103,7 +103,7 @@ class SoundManager {
     /*  Ambient drone                                                      */
     /* ------------------------------------------------------------------ */
 
-    /** Start a looping low-frequency atmospheric drone. */
+    /** Start a looping dark atmospheric drone with eerie tonal layers. */
     startAmbient() {
         if (!this._ctx || this._ambientSource) return;
         const t = this._ctx.currentTime;
@@ -116,29 +116,57 @@ class SoundManager {
         // Low-pass filter for deep rumble
         const lp = this._ctx.createBiquadFilter();
         lp.type = 'lowpass';
-        lp.frequency.value = 180;
-        lp.Q.value = 0.7;
+        lp.frequency.value = 150;
+        lp.Q.value = 1.0;
 
-        // Slow LFO modulates filter frequency for subtle variation
+        // Slow LFO modulates filter frequency for unsettling variation
         const lfo = this._ctx.createOscillator();
         const lfoGain = this._ctx.createGain();
-        lfo.frequency.value = 0.15;  // very slow
-        lfoGain.gain.value = 60;     // ±60 Hz modulation
+        lfo.frequency.value = 0.08;  // very slow, creepy drift
+        lfoGain.gain.value = 80;     // ±80 Hz modulation
         lfo.connect(lfoGain).connect(lp.frequency);
         lfo.start(t);
 
         // Volume
         const gain = this._ctx.createGain();
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.35, t + 1.5);  // fade in
+        gain.gain.linearRampToValueAtTime(0.4, t + 2.0);  // fade in
 
         src.connect(lp).connect(gain).connect(this._master);
         src.start(t);
+
+        // Eerie tonal drone — detuned low oscillators for dread
+        const drone1 = this._ctx.createOscillator();
+        drone1.type = 'sawtooth';
+        drone1.frequency.value = 48;  // very low, dissonant
+        const drone1Lp = this._ctx.createBiquadFilter();
+        drone1Lp.type = 'lowpass';
+        drone1Lp.frequency.value = 120;
+        const drone1Gain = this._ctx.createGain();
+        drone1Gain.gain.setValueAtTime(0, t);
+        drone1Gain.gain.linearRampToValueAtTime(0.12, t + 3.0);
+        drone1.connect(drone1Lp).connect(drone1Gain).connect(this._master);
+        drone1.start(t);
+
+        // Second drone, slightly detuned for beating/unease
+        const drone2 = this._ctx.createOscillator();
+        drone2.type = 'sawtooth';
+        drone2.frequency.value = 51;  // ~3Hz beat against drone1
+        const drone2Lp = this._ctx.createBiquadFilter();
+        drone2Lp.type = 'lowpass';
+        drone2Lp.frequency.value = 110;
+        const drone2Gain = this._ctx.createGain();
+        drone2Gain.gain.setValueAtTime(0, t);
+        drone2Gain.gain.linearRampToValueAtTime(0.10, t + 3.5);
+        drone2.connect(drone2Lp).connect(drone2Gain).connect(this._master);
+        drone2.start(t);
 
         this._ambientSource = src;
         this._ambientGain = gain;
         this._ambientLFO = lfo;
         this._ambientFilter = lp;
+        this._ambientDrone1 = drone1;
+        this._ambientDrone2 = drone2;
     }
 
     /** Fade out and stop ambient drone. */
@@ -153,15 +181,21 @@ class SoundManager {
 
         const src = this._ambientSource;
         const lfo = this._ambientLFO;
+        const d1 = this._ambientDrone1;
+        const d2 = this._ambientDrone2;
         setTimeout(() => {
             try { src.stop(); } catch (_) { /* ignore */ }
             try { lfo.stop(); } catch (_) { /* ignore */ }
+            try { d1.stop(); } catch (_) { /* ignore */ }
+            try { d2.stop(); } catch (_) { /* ignore */ }
         }, 500);
 
         this._ambientSource = null;
         this._ambientGain = null;
         this._ambientLFO = null;
         this._ambientFilter = null;
+        this._ambientDrone1 = null;
+        this._ambientDrone2 = null;
     }
 
     /* ------------------------------------------------------------------ */
@@ -173,7 +207,7 @@ class SoundManager {
      * @param {number} dist  distance in world units
      */
     updateEnemyProximity(dist) {
-        const MAX_DIST = 8.0;
+        const MAX_DIST = 20.0;
         const MIN_DIST = 0.6;
 
         if (dist >= MAX_DIST) {
@@ -184,10 +218,10 @@ class SoundManager {
         // Normalised closeness 0..1
         const t = 1 - Math.max(0, Math.min(1, (dist - MIN_DIST) / (MAX_DIST - MIN_DIST)));
 
-        // Volume: 0 → 1.0
-        const vol = t * 1.0;
-        // Tempo: 0.5 → 3.0 beats/s
-        const tempo = 0.5 + t * 2.5;
+        // Exponential volume curve — quiet at distance, loud up close
+        const vol = t * t * 1.4;
+        // Tempo: 0.3 → 2.5 beats/s
+        const tempo = 0.3 + t * t * 2.2;
 
         if (!this._heartbeatRunning) {
             this._startHeartbeat(vol, tempo);
@@ -222,29 +256,57 @@ class SoundManager {
         }, delay);
     }
 
-    /** Play a single double-pulse "lub-dub" heartbeat. */
+    /** Play a realistic double-pulse "lub-dub" heartbeat. */
     _playBeatPulse() {
         if (!this._ctx || !this._heartbeatGain) return;
         const t = this._ctx.currentTime;
 
-        // "Lub" — low thump
-        this._singlePulse(t, 45, 0.10);
-        // "Dub" — slightly higher, 80 ms later
-        this._singlePulse(t + 0.08, 55, 0.07);
+        // "Lub" — deep chest thump (low sine + sub hit)
+        this._heartPulse(t, 40, 0.15, 1.0);
+        this._heartPulse(t, 28, 0.12, 0.6);   // sub-bass layer
+
+        // "Dub" — shorter, slightly higher, 120ms later
+        this._heartPulse(t + 0.12, 55, 0.10, 0.7);
+        this._heartPulse(t + 0.12, 35, 0.08, 0.35);  // sub-bass layer
+
+        // Body resonance — filtered noise thump for chest feel
+        this._heartNoiseThump(t, 0.08);
+        this._heartNoiseThump(t + 0.12, 0.05);
     }
 
-    _singlePulse(startTime, freq, duration) {
+    _heartPulse(startTime, freq, duration, vol) {
         const osc = this._ctx.createOscillator();
         osc.type = 'sine';
-        osc.frequency.value = freq;
+        osc.frequency.setValueAtTime(freq, startTime);
+        // Slight pitch drop like a real heartbeat
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.7, startTime + duration);
 
         const env = this._ctx.createGain();
-        env.gain.setValueAtTime(1, startTime);
+        env.gain.setValueAtTime(vol, startTime);
         env.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
         osc.connect(env).connect(this._heartbeatGain);
         osc.start(startTime);
-        osc.stop(startTime + duration);
+        osc.stop(startTime + duration + 0.01);
+    }
+
+    _heartNoiseThump(startTime, duration) {
+        if (!this._noiseBuffer) return;
+        const src = this._ctx.createBufferSource();
+        src.buffer = this._noiseBuffer;
+
+        const lp = this._ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 100;
+        lp.Q.value = 1.5;
+
+        const env = this._ctx.createGain();
+        env.gain.setValueAtTime(0.5, startTime);
+        env.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+        src.connect(lp).connect(env).connect(this._heartbeatGain);
+        src.start(startTime);
+        src.stop(startTime + duration + 0.01);
     }
 
     stopHeartbeat() {
@@ -426,54 +488,83 @@ class SoundManager {
     /*  Win sound                                                          */
     /* ------------------------------------------------------------------ */
 
-    /** Dark, tense escape confirmation — low dissonant tones with eerie release. */
+    /** Ominous escape — heavy door slam with dissonant reverb tail. */
     playWinSound() {
         if (!this._ctx) return;
         const t = this._ctx.currentTime;
 
-        // Dark minor tones: C3, Eb3, then a low G2 resolve
-        const notes = [
-            { freq: 130.81, start: 0,    dur: 0.5,  type: 'sawtooth', vol: 0.2 },
-            { freq: 155.56, start: 0.15, dur: 0.5,  type: 'sawtooth', vol: 0.18 },
-            { freq: 98.00,  start: 0.45, dur: 0.8,  type: 'triangle', vol: 0.25 },
-        ];
+        // Massive low impact — like a heavy iron door slamming shut
+        const impact = this._ctx.createOscillator();
+        impact.type = 'sawtooth';
+        impact.frequency.setValueAtTime(65, t);
+        impact.frequency.exponentialRampToValueAtTime(25, t + 0.6);
 
-        notes.forEach((n) => {
-            const start = t + n.start;
-            const osc = this._ctx.createOscillator();
-            osc.type = n.type;
-            osc.frequency.value = n.freq;
+        const impactDist = this._ctx.createWaveShaper();
+        impactDist.curve = this._makeDistortionCurve(300);
 
-            // Low-pass filter for muffled, dungeon-like quality
-            const lp = this._ctx.createBiquadFilter();
-            lp.type = 'lowpass';
-            lp.frequency.value = 400;
-            lp.Q.value = 2;
+        const impactEnv = this._ctx.createGain();
+        impactEnv.gain.setValueAtTime(0.7, t);
+        impactEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
 
-            const env = this._ctx.createGain();
-            env.gain.setValueAtTime(n.vol, start);
-            env.gain.setValueAtTime(n.vol, start + n.dur * 0.3);
-            env.gain.exponentialRampToValueAtTime(0.001, start + n.dur);
+        impact.connect(impactDist).connect(impactEnv).connect(this._master);
+        impact.start(t);
+        impact.stop(t + 0.6);
 
-            osc.connect(lp).connect(env).connect(this._master);
-            osc.start(start);
-            osc.stop(start + n.dur);
-        });
+        // Noise slam layer — metallic crash
+        const slam = this._ctx.createBufferSource();
+        slam.buffer = this._noiseBuffer;
+        const slamBp = this._ctx.createBiquadFilter();
+        slamBp.type = 'bandpass';
+        slamBp.frequency.value = 200;
+        slamBp.Q.value = 1.5;
+        const slamEnv = this._ctx.createGain();
+        slamEnv.gain.setValueAtTime(0.6, t);
+        slamEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        slam.connect(slamBp).connect(slamEnv).connect(this._master);
+        slam.start(t);
+        slam.stop(t + 0.3);
 
-        // Breathy noise tail — like a heavy exhale of relief
-        const noiseSrc = this._ctx.createBufferSource();
-        noiseSrc.buffer = this._noiseBuffer;
-        const noiseLp = this._ctx.createBiquadFilter();
-        noiseLp.type = 'bandpass';
-        noiseLp.frequency.value = 300;
-        noiseLp.Q.value = 0.8;
-        const noiseEnv = this._ctx.createGain();
-        noiseEnv.gain.setValueAtTime(0, t + 0.5);
-        noiseEnv.gain.linearRampToValueAtTime(0.1, t + 0.7);
-        noiseEnv.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-        noiseSrc.connect(noiseLp).connect(noiseEnv).connect(this._master);
-        noiseSrc.start(t + 0.5);
-        noiseSrc.stop(t + 1.4);
+        // Dissonant drone aftermath — you escaped but at what cost
+        const drone1 = this._ctx.createOscillator();
+        drone1.type = 'sawtooth';
+        drone1.frequency.value = 55;  // low A
+        const drone2 = this._ctx.createOscillator();
+        drone2.type = 'sawtooth';
+        drone2.frequency.value = 58;  // detuned — sickening beat
+
+        const droneLp = this._ctx.createBiquadFilter();
+        droneLp.type = 'lowpass';
+        droneLp.frequency.value = 100;
+
+        const droneEnv = this._ctx.createGain();
+        droneEnv.gain.setValueAtTime(0, t + 0.2);
+        droneEnv.gain.linearRampToValueAtTime(0.25, t + 0.6);
+        droneEnv.gain.setValueAtTime(0.25, t + 1.2);
+        droneEnv.gain.exponentialRampToValueAtTime(0.001, t + 2.5);
+
+        drone1.connect(droneLp);
+        drone2.connect(droneLp);
+        droneLp.connect(droneEnv).connect(this._master);
+        drone1.start(t + 0.2);
+        drone2.start(t + 0.2);
+        drone1.stop(t + 2.5);
+        drone2.stop(t + 2.5);
+
+        // Eerie high whisper — wind through a closing passage
+        const whisper = this._ctx.createBufferSource();
+        whisper.buffer = this._noiseBuffer;
+        const whisperBp = this._ctx.createBiquadFilter();
+        whisperBp.type = 'bandpass';
+        whisperBp.frequency.setValueAtTime(4000, t + 0.5);
+        whisperBp.frequency.exponentialRampToValueAtTime(1500, t + 2.5);
+        whisperBp.Q.value = 5;
+        const whisperEnv = this._ctx.createGain();
+        whisperEnv.gain.setValueAtTime(0, t + 0.5);
+        whisperEnv.gain.linearRampToValueAtTime(0.08, t + 1.0);
+        whisperEnv.gain.exponentialRampToValueAtTime(0.001, t + 2.5);
+        whisper.connect(whisperBp).connect(whisperEnv).connect(this._master);
+        whisper.start(t + 0.5);
+        whisper.stop(t + 2.5);
     }
 
     /* ------------------------------------------------------------------ */

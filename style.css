@@ -33,18 +33,11 @@ html, body {
 }
 
 #timer {
-    font-size: 28px;
-    color: #fff;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    font-weight: bold;
+    display: none;
 }
 
 #message {
-    font-size: 20px;
-    color: #ffd700;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    font-weight: bold;
-    animation: pulse 2s ease-in-out infinite;
+    display: none;
 }
 
 @keyframes pulse {
