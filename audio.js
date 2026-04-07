@@ -295,96 +295,131 @@ class SoundManager {
     /*  Caught sting (game over)                                           */
     /* ------------------------------------------------------------------ */
 
-    /** Terrifying scream — layered distorted shriek when enemy catches player. */
+    /** Demonic scream — FM-modulated shriek with heavy distortion and growl. */
     playCaughtSting() {
         if (!this._ctx) return;
         const t = this._ctx.currentTime;
+        const dur = 1.5;
 
-        // Layer 1: High-pitched shriek sweeping down (vocal scream feel)
-        const scream = this._ctx.createOscillator();
-        scream.type = 'sawtooth';
-        scream.frequency.setValueAtTime(1400, t);
-        scream.frequency.exponentialRampToValueAtTime(300, t + 0.8);
+        // --- Screaming FM voice (carrier + modulator = inhuman vocal) ---
+        // Modulator oscillator creates rapid vibrato/screaming texture
+        const mod = this._ctx.createOscillator();
+        mod.type = 'sawtooth';
+        mod.frequency.setValueAtTime(120, t);
+        mod.frequency.linearRampToValueAtTime(40, t + dur);
 
-        const screamEnv = this._ctx.createGain();
-        screamEnv.gain.setValueAtTime(0.8, t);
-        screamEnv.gain.setValueAtTime(0.8, t + 0.15);
-        screamEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+        const modGain = this._ctx.createGain();
+        modGain.gain.setValueAtTime(600, t);  // deep FM = screaming harmonics
+        modGain.gain.linearRampToValueAtTime(200, t + dur);
 
-        const screamDist = this._ctx.createWaveShaper();
-        screamDist.curve = this._makeDistortionCurve(400);
-        screamDist.oversample = '4x';
+        // Carrier — the main scream voice
+        const carrier = this._ctx.createOscillator();
+        carrier.type = 'sawtooth';
+        carrier.frequency.setValueAtTime(900, t);
+        carrier.frequency.exponentialRampToValueAtTime(150, t + dur);
 
-        // Formant-like resonance to sound more vocal
-        const formant1 = this._ctx.createBiquadFilter();
-        formant1.type = 'bandpass';
-        formant1.frequency.value = 800;
-        formant1.Q.value = 5;
+        mod.connect(modGain).connect(carrier.frequency);
 
-        const formant2 = this._ctx.createBiquadFilter();
-        formant2.type = 'peaking';
-        formant2.frequency.value = 2500;
-        formant2.gain.value = 10;
-        formant2.Q.value = 3;
+        // Heavy distortion
+        const dist1 = this._ctx.createWaveShaper();
+        dist1.curve = this._makeDistortionCurve(800);
+        dist1.oversample = '4x';
 
-        scream.connect(screamDist).connect(formant1).connect(formant2)
-            .connect(screamEnv).connect(this._master);
-        scream.start(t);
-        scream.stop(t + 0.9);
+        const carrierEnv = this._ctx.createGain();
+        carrierEnv.gain.setValueAtTime(0.9, t);
+        carrierEnv.gain.setValueAtTime(0.9, t + 0.4);
+        carrierEnv.gain.exponentialRampToValueAtTime(0.001, t + dur);
 
-        // Layer 2: Second detuned scream for thickness
-        const scream2 = this._ctx.createOscillator();
-        scream2.type = 'sawtooth';
-        scream2.frequency.setValueAtTime(1450, t);
-        scream2.frequency.exponentialRampToValueAtTime(280, t + 0.85);
+        carrier.connect(dist1).connect(carrierEnv).connect(this._master);
+        mod.start(t);
+        carrier.start(t);
+        mod.stop(t + dur);
+        carrier.stop(t + dur);
 
-        const scream2Env = this._ctx.createGain();
-        scream2Env.gain.setValueAtTime(0.5, t);
-        scream2Env.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+        // --- Second FM scream, detuned for chorus/thickness ---
+        const mod2 = this._ctx.createOscillator();
+        mod2.type = 'square';
+        mod2.frequency.setValueAtTime(135, t);
+        mod2.frequency.linearRampToValueAtTime(55, t + dur);
 
-        const scream2Dist = this._ctx.createWaveShaper();
-        scream2Dist.curve = this._makeDistortionCurve(350);
-        scream2Dist.oversample = '4x';
+        const mod2Gain = this._ctx.createGain();
+        mod2Gain.gain.setValueAtTime(500, t);
+        mod2Gain.gain.linearRampToValueAtTime(150, t + dur);
 
-        scream2.connect(scream2Dist).connect(scream2Env).connect(this._master);
-        scream2.start(t);
-        scream2.stop(t + 0.85);
+        const carrier2 = this._ctx.createOscillator();
+        carrier2.type = 'sawtooth';
+        carrier2.frequency.setValueAtTime(950, t);
+        carrier2.frequency.exponentialRampToValueAtTime(130, t + dur * 0.9);
 
-        // Layer 3: Deep demonic growl underneath
+        mod2.connect(mod2Gain).connect(carrier2.frequency);
+
+        const dist2 = this._ctx.createWaveShaper();
+        dist2.curve = this._makeDistortionCurve(600);
+        dist2.oversample = '4x';
+
+        const carrier2Env = this._ctx.createGain();
+        carrier2Env.gain.setValueAtTime(0.7, t);
+        carrier2Env.gain.setValueAtTime(0.7, t + 0.3);
+        carrier2Env.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.9);
+
+        carrier2.connect(dist2).connect(carrier2Env).connect(this._master);
+        mod2.start(t);
+        carrier2.start(t);
+        mod2.stop(t + dur);
+        carrier2.stop(t + dur);
+
+        // --- Deep demonic sub-growl with tremolo ---
         const growl = this._ctx.createOscillator();
         growl.type = 'sawtooth';
-        growl.frequency.setValueAtTime(70, t);
-        growl.frequency.linearRampToValueAtTime(40, t + 1.0);
+        growl.frequency.setValueAtTime(55, t);
+        growl.frequency.linearRampToValueAtTime(30, t + dur);
 
-        const growlEnv = this._ctx.createGain();
-        growlEnv.gain.setValueAtTime(0.7, t);
-        growlEnv.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+        const tremolo = this._ctx.createOscillator();
+        tremolo.type = 'sine';
+        tremolo.frequency.value = 15; // fast tremolo = demonic rumble
+
+        const tremoloGain = this._ctx.createGain();
+        tremoloGain.gain.value = 0.4;
+
+        const growlAmp = this._ctx.createGain();
+        growlAmp.gain.value = 0.6;
+        tremolo.connect(tremoloGain).connect(growlAmp.gain);
 
         const growlDist = this._ctx.createWaveShaper();
-        growlDist.curve = this._makeDistortionCurve(500);
+        growlDist.curve = this._makeDistortionCurve(900);
         growlDist.oversample = '2x';
 
-        growl.connect(growlDist).connect(growlEnv).connect(this._master);
-        growl.start(t);
-        growl.stop(t + 1.0);
+        const growlEnv = this._ctx.createGain();
+        growlEnv.gain.setValueAtTime(0.9, t);
+        growlEnv.gain.exponentialRampToValueAtTime(0.001, t + dur);
 
-        // Layer 4: Noise burst — chaotic scream texture
+        growl.connect(growlDist).connect(growlAmp).connect(growlEnv).connect(this._master);
+        tremolo.start(t);
+        growl.start(t);
+        tremolo.stop(t + dur);
+        growl.stop(t + dur);
+
+        // --- Harsh noise scream layer ---
         const noiseSrc = this._ctx.createBufferSource();
         noiseSrc.buffer = this._noiseBuffer;
 
+        const noiseDist = this._ctx.createWaveShaper();
+        noiseDist.curve = this._makeDistortionCurve(600);
+
         const noiseBp = this._ctx.createBiquadFilter();
         noiseBp.type = 'bandpass';
-        noiseBp.frequency.setValueAtTime(2000, t);
-        noiseBp.frequency.exponentialRampToValueAtTime(500, t + 0.7);
-        noiseBp.Q.value = 2;
+        noiseBp.frequency.setValueAtTime(3000, t);
+        noiseBp.frequency.exponentialRampToValueAtTime(400, t + dur);
+        noiseBp.Q.value = 3;
 
         const noiseEnv = this._ctx.createGain();
-        noiseEnv.gain.setValueAtTime(0.6, t);
-        noiseEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+        noiseEnv.gain.setValueAtTime(0.8, t);
+        noiseEnv.gain.setValueAtTime(0.7, t + 0.3);
+        noiseEnv.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.8);
 
-        noiseSrc.connect(noiseBp).connect(noiseEnv).connect(this._master);
+        noiseSrc.connect(noiseDist).connect(noiseBp).connect(noiseEnv).connect(this._master);
         noiseSrc.start(t);
-        noiseSrc.stop(t + 0.7);
+        noiseSrc.stop(t + dur);
     }
 
     /* ------------------------------------------------------------------ */

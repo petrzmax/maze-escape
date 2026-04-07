@@ -308,8 +308,8 @@ class Raycaster {
 
             for (let x = 0; x < screenW; x++) {
                 // Tile-wrap texture coords (handles negatives correctly)
-                const txi = ((fx | 0) % texW + texW) % texW;
-                const tyi = ((fy | 0) % texH + texH) % texH;
+                const txi = ((fx * texW) | 0) & (texW - 1);
+                const tyi = ((fy * texH) | 0) & (texH - 1);
                 const ti = (tyi * texW + txi) * 4;
 
                 // Floor — only draw below wall
