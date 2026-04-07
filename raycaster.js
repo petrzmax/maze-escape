@@ -18,6 +18,7 @@ class Raycaster {
         this.pixels = this.imageData.data;
         this.minimapCellSize = 2;
         this.minimapPadding = 10;
+        this.showMinimap = false;
     }
 
     _setupResolution() {
@@ -196,10 +197,10 @@ class Raycaster {
         // Enemy faces (canvas API)
         this._renderFaces(this.ctx, enemies, w, h);
 
-        // Minimap (disabled)
-        // if (revealed) {
-        //     this._renderMinimap(this.ctx, map, mapW, mapH, player, enemies, revealed, w, h);
-        // }
+        // Minimap (toggled externally)
+        if (revealed && this.showMinimap) {
+            this._renderMinimap(this.ctx, map, mapW, mapH, player, enemies, revealed, w, h);
+        }
     }
 
     // --- Wall casting (Lodev DDA) ---

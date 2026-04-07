@@ -130,7 +130,7 @@ class SoundManager {
         // Volume
         const gain = this._ctx.createGain();
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.14, t + 1.5);  // fade in
+        gain.gain.linearRampToValueAtTime(0.35, t + 1.5);  // fade in
 
         src.connect(lp).connect(gain).connect(this._master);
         src.start(t);
@@ -184,8 +184,8 @@ class SoundManager {
         // Normalised closeness 0..1
         const t = 1 - Math.max(0, Math.min(1, (dist - MIN_DIST) / (MAX_DIST - MIN_DIST)));
 
-        // Volume: 0 → 0.7
-        const vol = t * 0.7;
+        // Volume: 0 → 1.0
+        const vol = t * 1.0;
         // Tempo: 0.5 → 3.0 beats/s
         const tempo = 0.5 + t * 2.5;
 
@@ -271,80 +271,174 @@ class SoundManager {
     /*  Menu click                                                         */
     /* ------------------------------------------------------------------ */
 
-    /** Short sine blip for UI interactions. */
+    /** Sharp low click for UI interactions. */
     playMenuClick() {
         if (!this._ctx) return;
         const t = this._ctx.currentTime;
 
+        // Sharp attack square pulse
         const osc = this._ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = 1000;
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(200, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + 0.06);
 
         const env = this._ctx.createGain();
-        env.gain.setValueAtTime(0.3, t);
-        env.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        env.gain.setValueAtTime(0.35, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
 
         osc.connect(env).connect(this._master);
         osc.start(t);
-        osc.stop(t + 0.05);
+        osc.stop(t + 0.08);
     }
 
     /* ------------------------------------------------------------------ */
     /*  Caught sting (game over)                                           */
     /* ------------------------------------------------------------------ */
 
-    /** Dissonant low-frequency burst when enemy catches player. */
+    /** Terrifying scream — layered distorted shriek when enemy catches player. */
     playCaughtSting() {
         if (!this._ctx) return;
         const t = this._ctx.currentTime;
 
-        // Two detuned sawtooth oscillators for dissonance
-        const freqs = [80, 85];
-        for (const freq of freqs) {
-            const osc = this._ctx.createOscillator();
-            osc.type = 'sawtooth';
-            osc.frequency.value = freq;
+        // Layer 1: High-pitched shriek sweeping down (vocal scream feel)
+        const scream = this._ctx.createOscillator();
+        scream.type = 'sawtooth';
+        scream.frequency.setValueAtTime(1400, t);
+        scream.frequency.exponentialRampToValueAtTime(300, t + 0.8);
 
-            const env = this._ctx.createGain();
-            env.gain.setValueAtTime(0.5, t);
-            env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        const screamEnv = this._ctx.createGain();
+        screamEnv.gain.setValueAtTime(0.8, t);
+        screamEnv.gain.setValueAtTime(0.8, t + 0.15);
+        screamEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
 
-            // Waveshaper distortion for grit
-            const shaper = this._ctx.createWaveShaper();
-            shaper.curve = this._makeDistortionCurve(200);
-            shaper.oversample = '2x';
+        const screamDist = this._ctx.createWaveShaper();
+        screamDist.curve = this._makeDistortionCurve(400);
+        screamDist.oversample = '4x';
 
-            osc.connect(shaper).connect(env).connect(this._master);
-            osc.start(t);
-            osc.stop(t + 0.5);
-        }
+        // Formant-like resonance to sound more vocal
+        const formant1 = this._ctx.createBiquadFilter();
+        formant1.type = 'bandpass';
+        formant1.frequency.value = 800;
+        formant1.Q.value = 5;
+
+        const formant2 = this._ctx.createBiquadFilter();
+        formant2.type = 'peaking';
+        formant2.frequency.value = 2500;
+        formant2.gain.value = 10;
+        formant2.Q.value = 3;
+
+        scream.connect(screamDist).connect(formant1).connect(formant2)
+            .connect(screamEnv).connect(this._master);
+        scream.start(t);
+        scream.stop(t + 0.9);
+
+        // Layer 2: Second detuned scream for thickness
+        const scream2 = this._ctx.createOscillator();
+        scream2.type = 'sawtooth';
+        scream2.frequency.setValueAtTime(1450, t);
+        scream2.frequency.exponentialRampToValueAtTime(280, t + 0.85);
+
+        const scream2Env = this._ctx.createGain();
+        scream2Env.gain.setValueAtTime(0.5, t);
+        scream2Env.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+
+        const scream2Dist = this._ctx.createWaveShaper();
+        scream2Dist.curve = this._makeDistortionCurve(350);
+        scream2Dist.oversample = '4x';
+
+        scream2.connect(scream2Dist).connect(scream2Env).connect(this._master);
+        scream2.start(t);
+        scream2.stop(t + 0.85);
+
+        // Layer 3: Deep demonic growl underneath
+        const growl = this._ctx.createOscillator();
+        growl.type = 'sawtooth';
+        growl.frequency.setValueAtTime(70, t);
+        growl.frequency.linearRampToValueAtTime(40, t + 1.0);
+
+        const growlEnv = this._ctx.createGain();
+        growlEnv.gain.setValueAtTime(0.7, t);
+        growlEnv.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+
+        const growlDist = this._ctx.createWaveShaper();
+        growlDist.curve = this._makeDistortionCurve(500);
+        growlDist.oversample = '2x';
+
+        growl.connect(growlDist).connect(growlEnv).connect(this._master);
+        growl.start(t);
+        growl.stop(t + 1.0);
+
+        // Layer 4: Noise burst — chaotic scream texture
+        const noiseSrc = this._ctx.createBufferSource();
+        noiseSrc.buffer = this._noiseBuffer;
+
+        const noiseBp = this._ctx.createBiquadFilter();
+        noiseBp.type = 'bandpass';
+        noiseBp.frequency.setValueAtTime(2000, t);
+        noiseBp.frequency.exponentialRampToValueAtTime(500, t + 0.7);
+        noiseBp.Q.value = 2;
+
+        const noiseEnv = this._ctx.createGain();
+        noiseEnv.gain.setValueAtTime(0.6, t);
+        noiseEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+
+        noiseSrc.connect(noiseBp).connect(noiseEnv).connect(this._master);
+        noiseSrc.start(t);
+        noiseSrc.stop(t + 0.7);
     }
 
     /* ------------------------------------------------------------------ */
     /*  Win sound                                                          */
     /* ------------------------------------------------------------------ */
 
-    /** Ascending three-tone jingle for victory. */
+    /** Dark, tense escape confirmation — low dissonant tones with eerie release. */
     playWinSound() {
         if (!this._ctx) return;
         const t = this._ctx.currentTime;
 
-        // C5, E5, G5
-        const notes = [523.25, 659.25, 783.99];
-        notes.forEach((freq, i) => {
-            const start = t + i * 0.15;
+        // Dark minor tones: C3, Eb3, then a low G2 resolve
+        const notes = [
+            { freq: 130.81, start: 0,    dur: 0.5,  type: 'sawtooth', vol: 0.2 },
+            { freq: 155.56, start: 0.15, dur: 0.5,  type: 'sawtooth', vol: 0.18 },
+            { freq: 98.00,  start: 0.45, dur: 0.8,  type: 'triangle', vol: 0.25 },
+        ];
+
+        notes.forEach((n) => {
+            const start = t + n.start;
             const osc = this._ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
+            osc.type = n.type;
+            osc.frequency.value = n.freq;
+
+            // Low-pass filter for muffled, dungeon-like quality
+            const lp = this._ctx.createBiquadFilter();
+            lp.type = 'lowpass';
+            lp.frequency.value = 400;
+            lp.Q.value = 2;
 
             const env = this._ctx.createGain();
-            env.gain.setValueAtTime(0.3, start);
-            env.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+            env.gain.setValueAtTime(n.vol, start);
+            env.gain.setValueAtTime(n.vol, start + n.dur * 0.3);
+            env.gain.exponentialRampToValueAtTime(0.001, start + n.dur);
 
-            osc.connect(env).connect(this._master);
+            osc.connect(lp).connect(env).connect(this._master);
             osc.start(start);
-            osc.stop(start + 0.25);
+            osc.stop(start + n.dur);
         });
+
+        // Breathy noise tail — like a heavy exhale of relief
+        const noiseSrc = this._ctx.createBufferSource();
+        noiseSrc.buffer = this._noiseBuffer;
+        const noiseLp = this._ctx.createBiquadFilter();
+        noiseLp.type = 'bandpass';
+        noiseLp.frequency.value = 300;
+        noiseLp.Q.value = 0.8;
+        const noiseEnv = this._ctx.createGain();
+        noiseEnv.gain.setValueAtTime(0, t + 0.5);
+        noiseEnv.gain.linearRampToValueAtTime(0.1, t + 0.7);
+        noiseEnv.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+        noiseSrc.connect(noiseLp).connect(noiseEnv).connect(this._master);
+        noiseSrc.start(t + 0.5);
+        noiseSrc.stop(t + 1.4);
     }
 
     /* ------------------------------------------------------------------ */

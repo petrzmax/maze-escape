@@ -25,7 +25,7 @@
     const overlayPrompt = document.getElementById('overlayPrompt');
     const timerEl = document.getElementById('timer');
     const messageEl = document.getElementById('message');
-    const muteIndicatorEl = document.getElementById('muteIndicator');
+
 
     // Audio
     const soundManager = new SoundManager();
@@ -40,6 +40,7 @@
     let enemyActive = false;
     let lastTime = 0;
     let animFrameId = null;
+    let showMinimap = false;
 
     // Footstep cadence timer
     let footstepTimer = 0;
@@ -74,10 +75,9 @@
         // Resume audio context on any user gesture (browser policy)
         soundManager.resume();
 
-        // M — toggle mute
-        if (e.code === 'KeyM') {
-            const muted = soundManager.setMuted(!soundManager.muted);
-            muteIndicatorEl.textContent = muted ? '🔇' : '🔊';
+        // ] — toggle minimap (hidden feature)
+        if (e.code === 'BracketRight') {
+            showMinimap = !showMinimap;
             return;
         }
 
@@ -264,6 +264,7 @@
         // Render
         if (mazeData && player) {
             const enemies = enemyActive ? [enemy] : [];
+            raycaster.showMinimap = showMinimap;
             raycaster.render(mazeData.map, mazeData.mapW, mazeData.mapH, player, enemies, revealed);
         } else {
             renderTitleScene();
